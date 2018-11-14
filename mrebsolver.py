@@ -1,4 +1,5 @@
 import re
+import copy
 
 
 class CodedDigit:
@@ -129,7 +130,7 @@ class MathRebusSolver:
             if self._layer == self._coded_digits_len - 1:
                 if int(self._parts[0]) == int(self._parts[1]):
                     yield MathRebusSolution(str(self),
-                                            self._factory.cache.copy())
+                                            copy.deepcopy(self._factory.cache))  # todo just digits
             else:
                 self._free[i] = False
                 self._layer += 1
