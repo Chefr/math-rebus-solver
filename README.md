@@ -10,6 +10,8 @@ It may be useful if you need to find the answer to the rebus of the specified ty
 
 The Solver realize as a solution generator:
     
+    from mrebsolver import MathRebusSolver
+    
     solver = MathRebusSolver('EAT + THAT = APPLE')
     solutions = []
     limit = 10  # In case of a lot of solutions
@@ -22,7 +24,7 @@ The Solver realize as a solution generator:
             break
     for solution in solutions:
         type(solution)  # mrebsolver.MathRebusSolution
-        solution.decoded_equation  # '819 + 9219 = 10038'
+        solution.decoded_equation  # str '819 + 9219 = 10038'
         solutions.decoded_digits  # dict {'E': 8, 'A': 1 etc.}
 
 
