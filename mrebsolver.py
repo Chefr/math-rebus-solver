@@ -1,5 +1,4 @@
 import re
-import copy
 
 
 class CodedDigit:
@@ -29,7 +28,7 @@ class CodedDigitFactory:
             return symbol
         if symbol in self.cache:
             return self.cache.get(symbol)
-        code_digit = CodedDigit()  # refactor default?
+        code_digit = CodedDigit()
         self.cache[symbol] = code_digit
         return code_digit
 
@@ -45,6 +44,7 @@ class CodedNumber:
         self._coded_digits = list(map(lambda symbol:
                                   coded_digit_factory.get(symbol),
                                   coded_digits))
+        self.is_positive = True
         coded_digit = self._coded_digits[0]
         if isinstance(coded_digit, CodedDigit):
             coded_digit.not_null = True  # First digit of number cannot be 0
@@ -53,14 +53,15 @@ class CodedNumber:
         str_digit = ''
         for coded_digit in self._coded_digits:
             str_digit += str(coded_digit)
-        return int(str_digit)
+        return int(str_digit) if self.is_positive else -int(str_digit)
 
     def __repr__(self):
         return ''.join(map(lambda digit: str(digit), self._coded_digits))
 
 
 class CodedExpression:
-    """Represents the coded expression"""
+    """Represents the coded expression. Calculation algorithm is taken from
+    R.Lafore. "Data Structures and Algorithms in Java" and needs optimization"""
 
     def __init__(self, coded_expression, factory):
         """
@@ -68,22 +69,35 @@ class CodedExpression:
         e.g. SEND + MORE
         :param factory: Coded Digit Factory
         """
-        self._items = re.split('(\W+)', coded_expression)
+        items = re.split('(\W)', coded_expression)
+        items = list(filter(lambda s: len(s) > 0, items))
         self._items = list(map(lambda item: CodedNumber(item, factory) if
                            item[0].isalnum() else item,
-                           self._items))
+                           items))
+        self._infix_items = []
+        self._parse()
+        self._stack = []
 
-    def __int__(self):  # todo full refactor
+    def __int__(self):
         if len(self._items) == 1:
             return int(self._items[0])
-        if self._items[1] == '+':
-            return int(self._items[0]) + int(self._items[2])
-        elif self._items[1] == '-':
-            return int(self._items[0]) - int(self._items[2])
-        elif self._items[1] == '*':
-            return int(self._items[0]) * int(self._items[2])
-        else:
-            return int(self._items[0]) / int(self._items[2])
+        stack = self._stack
+        for item in self._infix_items:
+            if isinstance(item, CodedNumber):
+                stack.append(int(item))
+            else:
+                num2 = stack.pop()
+                num1 = stack.pop()
+                if item == '+':
+                    result = num1 + num2
+                elif item == '-':
+                    result = num1 - num2
+                elif item == '*':
+                    result = num1 * num2
+                else:
+                    result = int(num1 / num2)
+                stack.append(result)
+        return stack.pop()
 
     def __repr__(self):
         str_expr = ''
@@ -92,6 +106,66 @@ class CodedExpression:
                 str_expr += ' '
             str_expr += str(self._items[i])
         return str_expr
+
+    def _parse(self):
+        if len(self._items) == 1:
+            self._infix_items = self._items
+            return
+        stack = []
+        for idx, item in enumerate(self._items):
+            if idx == 0 and not isinstance(item, CodedNumber):
+                if item == '-' and isinstance(self._items[1], CodedNumber):
+                    self._items[1].is_positive = False
+                    continue
+                if item != '(':
+                    raise IOError('Incorrect equation.'
+                                  'Incorrect or redundant operator ' +
+                                  item + ' at the beginning of an expression')
+            if not isinstance(item, CodedNumber):
+                if item == '+' or item == '-':
+                    self._parse_operator(item, 1, stack)
+                elif item == '*' or item == '/':
+                    self._parse_operator(item, 2, stack)
+                elif item == '(':
+                    stack.append(item)
+                elif item == ')':
+                    self._parse_brackets(stack)
+                else:
+                    raise IOError('Incorrect equation. Unknown operator "' + item + '".')
+            else:
+                self._infix_items.append(item)
+        while len(stack) > 0:
+            item = stack.pop()
+            if item == '(':
+                raise IOError('Incorrect equation. incorrect brackets placement.')
+            self._infix_items.append(item)
+
+    def _parse_operator(self, operator, priority, stack):
+        while len(stack) > 0:
+            prev_item = stack.pop()
+            if prev_item == '(':
+                stack.append(prev_item)
+                break
+            else:
+                if prev_item == '+' or prev_item == '-':
+                    prev_item_priority = 1
+                else:
+                    prev_item_priority = 2
+                if prev_item_priority < priority:
+                    stack.append(prev_item)
+                    break
+                else:
+                    self._infix_items.append(prev_item)
+        stack.append(operator)
+
+    def _parse_brackets(self, stack):
+        while len(stack) > 0:
+            item = stack.pop()
+            if item == '(':
+                break
+            self._infix_items.append(item)
+        else:
+            raise IOError('Incorrect equation. incorrect brackets placement.')
 
 
 class MathRebusSolver:
@@ -128,9 +202,16 @@ class MathRebusSolver:
                 continue
             coded_digit.digit = i
             if self._layer == self._coded_digits_len - 1:
-                if int(self._parts[0]) == int(self._parts[1]):
-                    yield MathRebusSolution(str(self),
-                                            copy.deepcopy(self._factory.cache))  # todo just digits
+                try:
+                    if int(self._parts[0]) == int(self._parts[1]):
+                        yield MathRebusSolution(str(self),
+                                                {item[0]: item[1].digit
+                                                 for item in
+                                                 self._factory.cache.items()})
+                except ZeroDivisionError:
+                    continue
+                except IndexError:
+                    raise IOError('Incorrect equation.')
             else:
                 self._free[i] = False
                 self._layer += 1
