@@ -25,7 +25,7 @@ The Solver realize as a solution generator:
     for solution in solutions:
         type(solution)  # mrebsolver.MathRebusSolution
         solution.decoded_equation  # str '819 + 9219 = 10038'
-        solutions.decoded_digits  # dict {'E': 8, 'A': 1 etc.}
+        solution.decoded_digits  # dict {'E': 8, 'A': 1 etc.}
 
 
 This is probably not the most effective way to solve such rebuses, but by this decision I also wanted to demonstrate not the most usual use of the "flyweight" pattern.
